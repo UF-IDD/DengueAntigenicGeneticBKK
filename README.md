@@ -1,4 +1,4 @@
-Repository of data and code for the manuscript: **Beyond the surface: Amino acid variation underlying two decades of dengue virus antigenic dynamics in Bangkok, Thailand**.
+Repository of data and code for the manuscript: **Beneath the surface: Amino acid variation underlying two decades of dengue virus antigenic dynamics in Bangkok, Thailand**.
 
 ---
 

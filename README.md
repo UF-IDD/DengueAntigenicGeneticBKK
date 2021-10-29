@@ -2,7 +2,7 @@ Repository of data and code for the manuscript: **Beneath the surface: Amino aci
 
 ---
 
-`00-RawData` and `02-processedData` contain the data files used in the analyses. `__main__.sh` is the entry point to all the analyses. Scripts were called in the orders below, reflecting the flow of contents in the manuscript.
+`00-RawData` and `02-processedData` containing the data files used in the analyses will be made available upon publication. `__main__.sh` is the entry point to all the analyses. Scripts were called in the orders below, reflecting the flow of contents in the manuscript.
 
 1. We first derive distances between all virus pairs present in the dataset. We then quantified amount of antigenic distance that may have arose from PRNT50 measurement uncertainties.
 

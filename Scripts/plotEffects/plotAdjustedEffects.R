@@ -36,7 +36,6 @@ dfit = read_csv(file.path(fitdir, "d_nonzero.csv")) %>%
     rename(iSample = protein_name) %>%
     mutate(subClust = str_extract(Feature, "[0-9]+") %>% as.integer)
 
-
 if(exportAdjuster){
     # effects of substitutions on the adjuster protein
     fit.adjuster = dfit %>%
@@ -158,6 +157,25 @@ hist(posFreqDf$freqEffect, 100, col = "black"
     , main = NULL
 )
 
+
+#' Number of nonzero effect substitutions identified across a range of significance thresholds.
+dfit %>%
+    mutate(prop_nonzero = n_nonzero / n_total) %>%   
+    arrange(desc(prop_nonzero)) %>%
+    mutate(i = seq_along(prop_nonzero)) %>%
+    ggplot(aes(x = i, y = prop_nonzero, color = lower > 0))+
+    geom_step(direction = 'h')+
+    scale_color_manual(values = c('FALSE'='#444444', 'TRUE'='red'), guide = 'none')+
+    xlab('Number of substitutions')+
+    ylab('Proportion of estimations\nshowing nonzero effect')+
+    ylim(c(0,1))+
+    theme_classic()
+ggsave(
+    filename = file.path(plotdir, paste0('significanceThresh_',aaver,'.pdf'))
+    , width = 5
+    , height = 3
+)
+  
 
 
 #' RMSE: sampling AA from NS2A vs null

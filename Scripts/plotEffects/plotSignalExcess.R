@@ -12,6 +12,7 @@
 #+ include = FALSE
 knitr::opts_chunk$set(include = TRUE, echo = FALSE, warning = FALSE)
 
+# params = list(plotdir = "04-plots/beyondE")
 library(tidyverse); theme_set(theme_minimal())
 library(ggpubr)
 attach(params)
@@ -98,6 +99,55 @@ rmseRandomE = lapply(names(proteinLengths), function(pname){
 do.call(what = rbind)
 
 
+    #   Import variations
+    
+
+# define functions that given counts observed AA at the position
+varaa = new.env()
+# compute Shannon entropy
+varaa$shannon = function(x){
+    -sum(log2(x/sum(x)) * x/sum(x))   
+}
+# compute Simpson diversity index
+varaa$simpson = function(x){
+    1 - sum(x * (x-1))/(sum(x) * (sum(x)-1))
+}
+# compute Wu-kabat variability coefficient
+varaa$wukabat = function(x){
+    (sum(x) * length(x)) / max(x)
+}
+measures = c(
+    'shannon' = "Shannon entropy"
+    , 'simpson' = "Simpson diversity index"
+    , 'wukabat' = "Wu-kabat variability coefficient"
+)
+
+# compute average variation for each protein
+variations = tibble(protein = names(dat$aa)) %>%
+    mutate(var =
+        lapply(dat$aa, function(aap){
+            tibble(
+                wukabat = do.call(rbind, aap) %>%
+                    apply(2, function(aai){
+                        counts = table(aai)
+                        varaa$wukabat(counts)
+                    }) 
+                , shannon = do.call(rbind, aap) %>%
+                    apply(2, function(aai){
+                        counts = table(aai)
+                        varaa$shannon(counts)
+                    }) 
+            ) %>%
+            summarize(
+                numVariable = sum(shannon > 0)
+                , wukabat = mean(wukabat)
+            )
+        })
+        , Length = proteinLengths[protein]
+    ) %>%
+    arrange(Length) %>%
+    mutate(protein = factor(protein, levels = protein)) %>%
+    unnest(cols = var)
 
     #   Compare signals against the null comparators
     #   ............................................
@@ -117,36 +167,69 @@ rmseExcess = list(rmseRandomPoly, rmseRandomE, rmse) %>%
     )
 gExcess = rmseExcess %>%
     ggplot(aes(
-        x = Median, y = i
+        y = Median, x = i
         , color = aaSource
         , size = aaSource
     ))+
-    geom_hline(yintercept = seq_along(dat$aa), size = 0.7, linetype = 1)+
-    geom_linerange(aes(xmin = lower, xmax = upper), alpha = 0.7)+
+    geom_vline(xintercept = seq_along(dat$aa) - 0.1, size = 0.5, linetype = 1)+
+    geom_linerange(aes(ymin = lower, ymax = upper), alpha = 0.7)+
     geom_point()+
     annotate("text"
-        , x = 0.9
-        , y = seq_along(proteinLengths) + 0.4
+        , y = 0.9
+        , x = seq_along(proteinLengths) + 0.4
         , label = paste0(
             short[names(proteinLengths)]
             , ' (', proteinLengths, ')'
         )
         , hjust = 1
-        , vjust = 0#-0.1
+        , vjust = 0
+        , angle = 90
     )+
-    scale_size_manual(legendTitle, values = c(0.2, 0.2, 1.2))+
+    scale_size_manual(legendTitle, values = c(0.2, 0.2, 1.2), guide = 'none')+
     scale_color_manual(legendTitle, values = Colors$aaSource)+
-    xlab('RMSE')+
+    ylab('RMSE')+
     theme(
         panel.grid = element_blank()
-        , axis.text.y = element_blank()
-        , axis.title.y = element_blank()
-        , axis.ticks.x = element_line(size = 1)
-        , legend.position = c(0, 0.1)
+        , axis.text.x = element_blank()
+        , axis.title.x = element_blank()
+        , axis.ticks.y = element_line(size = 1)
+        , legend.position = c(0.1, 0)
         , legend.justification = c(0,0)
         , legend.background = element_rect(fill = "white")
     )
-
+gVariation = variations %>%
+    ggplot(aes(x = as.integer(protein), y = wukabat))+
+    geom_col(fill = 'black')+
+    geom_text(aes(label = paste0(
+            numVariable, ' / ', Length
+            , ' (', round(numVariable*100/Length,0), '%)'
+        ))
+        , y = 0.1
+        , angle = 90
+        , hjust = 0
+        , color = 'white'
+        , size = rel(3)
+    )+
+    ylab("Mean Wu-kabat\nvariability coefficient")+
+    theme(
+        axis.text.x = element_blank()
+        , axis.title.x = element_blank()
+        , panel.grid = element_blank()
+        , axis.ticks.y = element_line(size = 1)
+    )
+    
+g = ggarrange(gVariation, gExcess
+    , ncol = 1
+    , nrow = 2
+    , align = 'v'
+    , heights = c(1.4,2)
+    , labels = 'auto'
+)
+ggsave( g
+    , filename = file.path(plotdir, "beyondE.pdf")
+    , width = 6.5
+    , height = 6.5
+)
 
 
 
@@ -220,7 +303,6 @@ Colors$location = c(
     , "cytosol" = "#1c9dff" # blue
 )
 
-
 plotSubsetRmse = function(nAA){
     fitdir = paste0('03-fits/nnls/thai_map/AA_NS2A_',nAA,'/adj_envelope/aasub')
     nulldir = paste0('03-fits/nnls/thai_map/AA_polyNonE_',nAA,'/adj_envelope/aasub')
@@ -264,8 +346,9 @@ plotSubsetRmse = function(nAA){
         )+
         theme_classic()+
         theme(
-            legend.position = c(1,0.05)
-            , legend.justification = c(1,0)
+            legend.justification = c(1,0)
+            , legend.position = c(1,0.05)
+            , legend.background = element_rect(fill = NA)
         )
 
 }
@@ -280,17 +363,41 @@ posFreq = lapply(c(30,60), function(nAA){
     read_csv(show_col_types = FALSE) %>%
     mutate(nAA = nAA)
 })
-gFreq = posFreq %>%
-    do.call(what = rbind) %>%
-    ggplot(aes(x = pos, y = freqEffect, shape = factor(nAA)))+
-    geom_line(aes(group = pos), size = 0.5, color = "grey")+
-    geom_point(size =2)+
-    scale_shape_manual("Number of sites\nper subsample"
-        , values = c(16,2)
-    )+
-    xlab("Position on NS2A")+
-    ylab("Freq.\nnonzero effect")+
-    theme_classic()
+xBreaks = seq(0,1,by=0.01)
+gFreq = ggarrange(
+    posFreq[[2]] %>%
+        ggplot(aes(x = freqEffect))+
+        geom_histogram(aes(y = ..count.. ), breaks = xBreaks, fill = 'red')+
+        scale_y_continuous("Number of sites\n(60AA per subsample)"
+            , expand = c(0,0))+
+        theme(
+            axis.text.x = element_blank()
+            , axis.title.x = element_blank()
+        )
+    , posFreq %>%
+        do.call(what = rbind) %>%
+        ggplot(aes(x = freqEffect, y = factor(nAA), group = pos))+
+        geom_line(alpha = 0.1)+
+        # geom_point(size = 0.1)+
+        scale_y_discrete(expand = c(0,0))+
+        theme(
+            axis.text = element_blank()
+            , axis.title = element_blank()
+            , panel.grid = element_blank()
+        )
+    , posFreq[[1]] %>%
+        ggplot(aes(x = freqEffect))+
+        geom_histogram(aes(y = -..count.. ), breaks = xBreaks, fill = 'red')+
+        scale_y_continuous("Number of sites\n(30AA per subsample)"
+            , expand = c(0,0)
+            , labels = function(x) -x
+        )+
+        xlab("Frequency nonzero effect")
+    , ncol = 1
+    , nrow = 3
+    , align = 'v'
+    , heights = c(3,0.7,3)
+)
 
 #+ include = T
 lapply(posFreq, function(x){
@@ -363,15 +470,6 @@ gPermute = rmse[sapply(rmse, nrow) > 1] %>%
     xlab("Subsample/permutation")+
     ylab("RMSE")
 
-gExcessSite = ggarrange(
-    plotSubsetRmse(60)
-    , plotSubsetRmse(30)
-    , gFreq
-    , ncol = 1
-    , nrow = 3
-    , labels = letters[2:4]
-)
-
 #' Root-mean-squared-error (RMSE)
 lapply(rmse, function(x){
     x %>%
@@ -383,6 +481,28 @@ lapply(rmse, function(x){
         )
 }) %>%
 do.call(what = rbind)
+
+g = ggarrange(
+    ggarrange(
+        plotSubsetRmse(60)
+        , plotSubsetRmse(30)
+        , ncol = 1
+        , nrow = 2
+        , labels = letters[1:2]
+    )
+    , gFreq
+    , gPermute
+    , ncol = 3
+    , nrow = 1
+    , labels = c('',letters[3:4])
+)
+
+ggsave( g
+    , filename = file.path(plotdir, "NS2A_sampleSites.pdf")
+    , width = 9
+    , height = 6
+)
+
 
 
 # Effect sizes of the 62 sites
@@ -426,7 +546,7 @@ gNS2A = ggarrange(
             , panel.border = element_rect(color = "grey", fill = NA)
             , plot.margin = margin(0,0,0,1)
             , legend.position = 'bottom'
-            , legend.justification = c(1, 1)
+            # , legend.justification = c(1, 1)
         )
 
     , ncol = 1
@@ -436,7 +556,6 @@ gNS2A = ggarrange(
     , common.legend = T
     , legend = "bottom"
 )
-
 
 # NS2A topology
 posTransit = domain %>%
@@ -521,27 +640,16 @@ gTopo = domain.topo %>%
     )+
     ylim(with(domain.topo, range(y) + c(-5, 10)))
 
-
-
-
-g = ggarrange(
-    gExcess
-    , gExcessSite
-    , ggarrange( gPermute, gTopo, gNS2A
-        , ncol = 1
-        , nrow = 3
-        , heights = c(2.5,1,3)
-        , labels = letters[5:7]
-    )
-    , ncol = 3
-    , nrow = 1
-    , labels = c('a', '', '')
-    , widths = c(1, 1.3, 1.3)
+g = ggarrange( gNS2A, gTopo
+    , ncol = 1
+    , nrow = 2
+    , heights = c(3,1)
+    , labels = 'auto'
 )
 ggsave( g
-    , filename = file.path(plotdir, "beyondE.jpg")
-    , width = 11
-    , height = 7
+    , filename = file.path(plotdir, "NS2A_effects.pdf")
+    , width = 6
+    , height = 5
 )
 
 
@@ -652,17 +760,20 @@ ggsave( g
 #' # Table of estimated effect sizes these 62 NS2A sites
 #'
 
-d %>%
+dNS2A.out = d %>%
     mutate(Position = pos
-        , Substitution = Feature
+        , Substitution = Feature %>% toupper
         , Effect.median = round(Median, 2)
         , Effect.lower = round(lower, 2)
         , Effect.upper = round(upper, 2)
     ) %>%
     select(Position, Substitution, starts_with('Effect')) %>%
-    arrange(Position, Effect.median) %>%
+    arrange(Position, Effect.median)
+dNS2A.out %>%
     DT::datatable()
 
+dNS2A.out %>%
+    write_csv(file.path(plotdir, 'Subs_nonzero_NS2A.csv'))
 
 #' 
 #' # Improvement in % variance explained
@@ -681,4 +792,25 @@ R.E = '03-fits/nnls/thai_map/AA/adj_none/aasub/envelope_protein_E' %>%
 
 # Improvement
 (R.beyond[c("0%","100%"), ] - R.E[c("100%","0%"), ])[ , c("Rsq.all", "Rsq.inter", "Rsq.intra")]
+
+# Predict vs observed
+Pred = '03-fits/nnls/thai_map/AA_NS2A_beyondE/adj_envelope/aasub/subset' %>% Rsq$calcPred()
+
+Rsq$DLong %>%
+    cbind(Pred) %>%
+    ggplot(aes(x = D))+
+    geom_linerange(
+        aes(ymin = `2.5%`, ymax = `97.5%`)
+        , size = 0.5
+        , alpha = 0.4
+    )+
+    geom_abline(slope = 1, color = 'red', linetype = 2)+
+    coord_fixed(ratio = 1)+
+    xlab("Observed distance")+
+    ylab("Predicted distance")
+ggsave(
+    filename = file.path(plotdir, 'pred_beyondE.pdf')
+    , width = 5
+    , height = 5
+)
 

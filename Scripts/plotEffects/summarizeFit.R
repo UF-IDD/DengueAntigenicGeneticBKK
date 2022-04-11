@@ -55,6 +55,10 @@ if(Sys.getenv("NOT_SAVE_ESTIMATES") != "TRUE"){
                     lower = quantile(effect, 0.025)
                     , Median = median(effect)
                     , upper = quantile(effect, 0.975)
+                    , Min = min(effect)
+                    , Max = max(effect)
+                    , n_nonzero = sum(effect > 0)
+                    , n_total = n()
                 )
         }
         , split(meta, meta %>% select(protein_name))

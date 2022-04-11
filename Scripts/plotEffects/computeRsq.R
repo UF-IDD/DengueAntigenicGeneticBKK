@@ -69,3 +69,24 @@ calcRsq.allFolds = function(x, folds = 1:100){
     lapply(quantile, c(0, 0.025, 0.5, 0.975, 1)) %>%
     do.call(what = cbind)
 }
+
+
+
+#   2) Rsq using only E
+#   ...................
+
+# function to get HPD of predictions
+calcPred = function(fitdir, folds = 1:100){
+    file.path(fitdir
+            , folds
+            , "prediction.txt"
+        ) %>%
+        lapply(function(predictionFile){
+            predictionFile %>%
+            readLines %>%
+            as.numeric
+        }) %>%
+        do.call(what = rbind) %>%
+        apply(2, quantile, c(0.025, 0.975)) %>%
+        t
+}

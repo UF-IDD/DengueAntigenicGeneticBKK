@@ -1,0 +1,9 @@
+﻿# taken from Figure 1 of Modis, 2004 (https://doi.org/10.1038/nature02165)
+domain,posStart,posEnd
+Domain I,1,51
+Domain II,52,131
+Domain I,132,192
+Domain II,193,279
+Domain I,280,295
+Domain III,296,393
+Stem/anchor,394,495

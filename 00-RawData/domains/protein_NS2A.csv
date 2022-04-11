@@ -1,0 +1,19 @@
+﻿# Annotations according to Figure 4A of Xie, 2013 (doi:10.1128/JVI.02424-12),,,,
+domain,location,posStart,posEnd,step.x,step.y
+N-terminal,ER lumen,1,2,1,0
+TMS1,ER lumen,3,24,1,0
+,ER lumen,25,31,0.3,-1.4
+TMS2,ER lumen,32,51,1,0
+,ER lumen,52,68,1,0
+TMS3,transmembrane,69,93,0,-1
+,cytosol,94,99,1,0
+TMS4,transmembrane,100,118,0,1
+,ER lumen,119,119,0,1
+TMS5,ER lumen,120,140,1,0
+,ER lumen,141,142,0,-1
+TMS6,transmembrane,143,163,0.1,-1
+,cytosol,164,164,1,0
+TMS7,transmembrane,165,186,0.1,1
+,ER lumen,187,188,1,0
+TMS8,transmembrane,189,209,0.1,-1
+C-terminal,cytosol,210,218,1,0

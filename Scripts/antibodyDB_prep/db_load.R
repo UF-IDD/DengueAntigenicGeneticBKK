@@ -12,7 +12,7 @@ ab = Reduce( full_join, list(act, epitope, mab)) %>%
     filter(`Epitope Type` != "Predicted") %>%
     filter(Infection == "Primary") %>%
     rename(mAb = `mAb name`) %>%
-    select(mAb, Specificity, `Assay Type`, `Epitope Type`, Protein, Domain, Sequence) %>%
+    select(mAb, Host, Specificity, `Assay Type`, `Epitope Type`, Protein, Domain, Sequence) %>%
     unique
 
 ab$positions = lapply(

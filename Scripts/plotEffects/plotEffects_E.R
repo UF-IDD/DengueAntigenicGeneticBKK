@@ -12,6 +12,7 @@
 #+ include = FALSE
 knitr::opts_chunk$set(include = TRUE, echo = FALSE, warning = FALSE)
 
+# params = list(outdir = "04-plots")
 library(tidyverse); theme_set(theme_minimal())
 library(ggpubr)
 attach(params)
@@ -204,9 +205,6 @@ ggsave(filename = file.path(plotdir, "variation.pdf"))
 
 
 
-
-
-
 #'
 #' # E protein
 #  ...........
@@ -224,11 +222,50 @@ dE = dE.all %>%
 lenE = dat$aa[['envelope protein E']][[1]] %>% length
 
 
+#' Number of nonzero effect substitutions identified across a range of significance thresholds.
+dE.all %>%
+    mutate(prop_nonzero = n_nonzero / n_total) %>%   
+    arrange(desc(prop_nonzero)) %>%
+    mutate(i = seq_along(prop_nonzero)) %>%
+    ggplot(aes(x = i, y = prop_nonzero, color = lower > 0))+
+    geom_step(direction = 'h')+
+    scale_color_manual(values = c('#444444', 'red'), guide = 'none')+
+    xlab('Number of substitutions in E')+
+    ylab('Proportion of estimations\nshowing nonzero effect')+
+    theme_classic()
+ggsave(
+    filename = file.path(plotdir, 'significanceThresh_E.pdf')
+    , width = 5
+    , height = 3
+)
+
 
 #' 
 #' `r nrow(dE)` nonzero effect substitutions, residing on
 #' `r unique(dE$pos) %>% length` sites, showed nonzero effect
-#' in at least 95% of the 100 estimations.
+#' (95%IQR of effects of substitutions across the 100 estimations excluded zero).
+#' Substitutions meeting our significance criteria 
+#' were estimated as having nonzero effects in at least the following proportion of estimations they were involved in.
+dE.all %>%
+    mutate(prop_nonzero = n_nonzero / n_total) %>%   
+    filter(lower > 0) %>%
+    with(min(prop_nonzero))
+#' Number of substitutions showing nonzero effect every time:
+dE.all %>%
+    mutate(prop_nonzero = n_nonzero / n_total) %>%   
+    with(sum(prop_nonzero == 1))
+#' Number of positions involved:
+dE.all %>%
+    filter(n_nonzero == n_total) %>%   
+    select(pos) %>%
+    unique %>%
+    nrow
+#' Positions involved:
+dE.all %>%
+    filter(n_nonzero == n_total) %>%   
+    with(unique(pos) %>% sort)
+
+
 #' Distribution of % Variance explained across the 100 estimations
 #' are shown below.
 
@@ -238,6 +275,26 @@ source("Scripts/plotEffects/computeRsq.R", local = Rsq)
 '03-fits/nnls/thai_map/AA/adj_none/aasub/envelope_protein_E' %>%
     Rsq$calcRsq.allFolds()
 
+Pred = '03-fits/nnls/thai_map/AA/adj_none/aasub/envelope_protein_E' %>% Rsq$calcPred()
+
+
+Rsq$DLong %>%
+    cbind(Pred) %>%
+    ggplot(aes(x = D))+
+    geom_linerange(
+        aes(ymin = `2.5%`, ymax = `97.5%`)
+        , size = 0.5
+        , alpha = 0.4
+    )+
+    geom_abline(slope = 1, color = 'red', linetype = 2)+
+    coord_fixed(ratio = 1)+
+    xlab("Observed distance")+
+    ylab("Predicted distance")
+ggsave(
+    filename = file.path(plotdir, 'pred_E.pdf')
+    , width = 5
+    , height = 5
+)
 
 
 
@@ -280,10 +337,16 @@ variations = variations %>%
     mutate(pos = pos - min(pos) + 1) %>%
     left_join( dat$ab.E %>%
         group_by(pos) %>%
-        summarize(nReport = n())
+        summarize(
+            nReport = n()
+            , nReportHuman = sum(Host == "Human")
+        )
         , by = 'pos'
     ) %>%
-    mutate(nReport = ifelse(is.na(nReport), 0, nReport)) 
+    mutate(
+        nReport = ifelse(is.na(nReport), 0, nReport)
+        , nReportHuman = ifelse(is.na(nReportHuman), 0, nReportHuman)
+    ) 
 
 gPotentMab = dat$ab.E %>%
     filter(mAb %in% c(
@@ -324,7 +387,7 @@ ggarrange(
         ggplot(aes(x = pos, y = Median))+
         # known relevant sites, without variation in Thai viruses
         geom_segment(data = variations %>%
-                    filter(shannon == 0, nReport > 0)
+                    filter(shannon == 0, nReportHuman > 0)
             , aes(x = pos, xend = pos, y = max(dE$upper) * 0.90, yend = max(dE$upper)*1.02)
             , color = "#aaaaaa"
             , size = 0.2
@@ -332,8 +395,8 @@ ggarrange(
         )+
         # known relevant sites, with variations in Thai viruses
         geom_vline(data = variations %>%
-                    filter(shannon > 0, nReport > 0)
-            , aes(xintercept = pos, alpha = nReport)
+                    filter(shannon > 0, nReportHuman > 0)
+            , aes(xintercept = pos, alpha = nReportHuman)
             , color = "#aaaaaa"
             , size = 0.2
         )+
@@ -387,11 +450,20 @@ tabE %>%
         , mAb_database = ifelse(nReport > 0, "known epitopes", "not epitopes/unknown")
         , diversity = ifelse(shannon > 0, "has diversity", "no diversity")
     ))
+tabE %>%
+    with(table(
+        effect = ifelse(!is.na(nonzero), "non-zero", "zero")
+        , mAb_database = ifelse(nReportHuman > 0, "known human epitopes", "not human epitopes/unknown")
+        , diversity = ifelse(shannon > 0, "has diversity", "no diversity")
+    ))
+
+
+
 # export to plot on E protein structure
 tabE %>%
     mutate(
         variable = as.integer(shannon > 0)
-        , epitope = as.integer(nReport > 0)
+        , epitope = as.integer(nReportHuman > 0)
         , nonzero = as.integer(!is.na(nonzero))
     ) %>%
     select(pos, nonzero, variable, epitope) %>%
@@ -410,9 +482,25 @@ fit = glm(nonzero ~ epitope
     , family = "binomial"
 ) %>%
 summary
-
 #+ echo = T
 exp(coef(fit)[2,1] + zCI * coef(fit)[2,2]) %>% round(2) # odds ratio, 95%CI
+
+
+#' Odds ratio of being picked up by the model (human mAb)
+fit = glm(nonzero ~ epitope
+    , data = tabE %>%
+        filter(shannon > 0) %>%
+        mutate(
+            nonzero = !is.na(nonzero)
+            , epitope = nReportHuman > 0
+        )
+    , family = "binomial"
+) %>%
+summary
+#+ echo = T
+exp(coef(fit)[2,1] + zCI * coef(fit)[2,2]) %>% round(2) # odds ratio, 95%CI
+
+
 
 
 #+ echo = F
@@ -423,13 +511,15 @@ dat$aaE = dat$aa[["envelope protein E"]]
 #' ## Off diagonals of the contingency table
 posEpitopes = tabE %>%
     filter(nReport > 0) %>%
-    select(pos) %>%
-    unlist(use.names = F)
+    with(pos)
+posEpitopesHuman = tabE %>%
+    filter(nReportHuman > 0) %>%
+    with(pos)
 posNonzero = tabE %>%
     filter(!is.na(nonzero)) %>%
-    select(pos) %>%
-    unlist(use.names = F)
+    with(pos)
 
+#' ### Neighbors by linear distance
 posVaryWithinWindow = function(x, wsize = 0, posExclude = integer(0)){
     tabE %>%
         filter(!(pos %in% posExclude)) %>%
@@ -442,29 +532,33 @@ posVaryWithinWindow = function(x, wsize = 0, posExclude = integer(0)){
 }
 #' Number of epitopes that were missed (although there was variability in the data)
 #' that were within N sites from nonzero effect sites.
-lapply(0:5, function(w){
-    sitesMissed = setdiff(posVaryWithinWindow(posEpitopes, 0),posNonzero)
-    data.frame(
-        windowSize = w
-        , nMissed = length(sitesMissed)
-        , nProximal = sum(sitesMissed %in% posVaryWithinWindow(posNonzero, w))
-    ) %>%
-    mutate( propProximal = nProximal / nMissed)
-}) %>%
-do.call(what = rbind) %>%
-rename(N = windowSize)
+getNProximal = function(posEp){
+    lapply(0:5, function(w){
+        sitesMissed = setdiff(posVaryWithinWindow(posEp, 0),posNonzero)
+        data.frame(
+            windowSize = w
+            , nMissed = length(sitesMissed)
+            , nProximal = sum(sitesMissed %in% posVaryWithinWindow(posNonzero, w))
+        ) %>%
+        mutate( propProximal = nProximal / nMissed)
+    }) %>%
+    do.call(what = rbind) %>%
+    rename(N = windowSize)    
+}
 
+getNProximal(posEpitopes)
+getNProximal(posEpitopesHuman)
 
 
 #' Probability of observing greater than or equal to this number of overlap
 #' between nonzero effect sites and epitope regions (with the given the expansion window size).
-getProbGe =  function(w, posExclude = integer(0)){
+getProbGe =  function(w, posEp, posExclude = integer(0)){
     data.frame(
         windowSize = w
-        , nIntersect = intersect(posNonzero, posVaryWithinWindow(posEpitopes, w)) %>%
+        , nIntersect = intersect(posNonzero, posVaryWithinWindow(posEp, w)) %>%
             setdiff(posExclude) %>%
             length
-        , nEpitopeSite = posVaryWithinWindow(posEpitopes, w) %>%
+        , nEpitopeSite = posVaryWithinWindow(posEp, w) %>%
             setdiff(posExclude) %>%
             length
     ) %>%
@@ -479,50 +573,79 @@ getProbGe =  function(w, posExclude = integer(0)){
     )
 }
 
-probGe = lapply(0:10, getProbGe) %>%
+# human + murine epitopes
+probGe = lapply(0:10, getProbGe, posEp = posEpitopes) %>%
     do.call(what = rbind) 
 
-    
-probGe %>%
-    select(windowSize, propGe, propEpitopeSite) %>%
-    gather(Type, prop, -windowSize) %>%
-    ggplot(aes(x = windowSize, y = prop, fill = Type))+
-    geom_col(position = 'dodge')+
-    geom_text(data = probGe %>%
-            mutate(Type = 'propGe')
-        , aes(y = propGe, label = round(propGe,3))
-        , angle = 90
-        , hjust = 0
-        , vjust = 1
-        , nudge_x = 0.1
-        , nudge_y = 0.01
-        , color = 'red'
-        
-    )+
-    scale_fill_manual(
-        values = c('grey','red')
-        , labels = c(
-            'Proportion of variable sites within N sites of known epitopes'
-            ,'Probability of the overlap being >= the observed by coincidence'
+# human epitopes
+probGeHuman = lapply(0:10, getProbGe, posEp = posEpitopesHuman) %>%
+    do.call(what = rbind) 
+
+# nonhuman epitopes
+probGeNonhuman = lapply(0:10, getProbGe, posEp = setdiff(posEpitopes, posEpitopesHuman)) %>%
+    do.call(what = rbind) 
+
+
+plotPropProximal = function(x){
+    g = x %>%
+        select(windowSize, propGe, propEpitopeSite) %>%
+        gather(Type, prop, -windowSize) %>%
+        ggplot(aes(x = windowSize, y = prop, fill = Type))+
+        geom_col(position = 'dodge')+
+        geom_text(data = x %>%
+                mutate(Type = 'propGe')
+            , aes(y = propGe, label = round(propGe,3) %>% sprintf(fmt = '%.3f'))
+            , angle = 90
+            , hjust = ifelse(max(x$propGe) > max(x$propEpitopeSite), 1, 0)
+            , vjust = 1
+            , nudge_x = 0.025
+            , nudge_y = ifelse(max(x$propGe) > max(x$propEpitopeSite), -0.01, 0.01)
+            , color = ifelse(max(x$propGe) > max(x$propEpitopeSite), 'white', 'red')
+        )+
+        scale_fill_manual(
+            values = c('grey','red')
+            , labels = c(
+                'Proportion of variable sites within N sites of known epitopes'
+                ,'Probability of the overlap being >= the observed by coincidence'
+            )
+        )+
+        scale_x_continuous("N"
+            , breaks = 0:10
+        )+
+        ylab("")+
+        theme_classic()+
+        theme(
+            legend.title = element_blank()
+            , legend.position = 'bottom'
+            , legend.direction = 'vertical'
+            # , axis.title.y = element_blank()
         )
-    )+
-    scale_x_continuous("N"
-        , breaks = 0:10
-    )+
-    theme_classic()+
-    theme(
-        legend.title = element_blank()
-        , legend.position = 'bottom'
-        , legend.direction = 'vertical'
-        , axis.title.y = element_blank()
-    )
+    return(g)
+}
+ggarrange(
+      plotPropProximal(probGe)
+    , plotPropProximal(probGeHuman)
+    , plotPropProximal(probGeNonhuman)
+    , ncol = 1
+    , nrow = 3
+    , common.legend = T
+    , legend = "bottom"
+    , labels = letters[2:4]
+    , font.label = list(size = 18)
+)
 ggsave( filename = file.path(plotdir, "propEpitopeOverlap.pdf")
-    , width = 4 * 1.1
-    , height = 4 * 1.1
+    , width = 4 * 1.5
+    , height = 4 * 1.5
 )
 
 probGe %>%
     rename(N = windowSize)
+probGeHuman %>%
+    rename(N = windowSize)
+
+
+
+
 
 
 
@@ -549,6 +672,155 @@ tabE %>%
     head(3)
 
 
+#' ### Neighbors by structural distance
+
+# import structural distance
+dat$sdist = read_csv("02-processedData/structure/ResidueDist.csv", col_types = 'iid')
+
+dat$sdist %>%
+    ggplot(aes(x = Dist))+
+    geom_histogram(binwidth = 1, fill = 'black')+
+    xlab('Angstrom')+
+    ylab('Position pairs')
+
+
+# function to get positions within a structural distance window from epitope positions that has variation
+posVaryWithinWindow = function(x, wsize = 0, posExclude = integer(0)){
+    tabE %>%
+        filter(!(pos %in% posExclude)) %>%
+        filter(shannon > 0) %>%
+        with( intersect(pos
+            , dat$sdist %>%
+                filter(Dist <= wsize) %>%
+                filter(i %in% x | j %in% x) %>%
+                with(union(i,j)) %>%
+                union(x)
+        ))
+}
+
+window.vector = seq(1,8, by = 0.5)
+
+# human + murine epitopes
+probGe = lapply(window.vector, getProbGe, posEp = posEpitopes) %>%
+    do.call(what = rbind) 
+
+# human epitopes
+probGeHuman = lapply(window.vector, getProbGe, posEp = posEpitopesHuman) %>%
+    do.call(what = rbind) 
+
+# nonhuman epitopes
+probGeNonhuman = lapply(0:10, getProbGe, posEp = setdiff(posEpitopes, posEpitopesHuman)) %>%
+    do.call(what = rbind) 
+
+
+
+
+#########
+
+plotPropProximal = function(x){
+    g = x %>%
+        select(windowSize, propGe, propEpitopeSite) %>%
+        gather(Type, prop, -windowSize) %>%
+        ggplot(aes(x = windowSize, y = prop, fill = Type))+
+        geom_col(position = 'dodge')+
+        geom_text(data = x %>%
+                mutate(Type = 'propGe')
+            , aes(y = propGe, label = round(propGe,3) %>% sprintf(fmt = '%.3f'))
+            , angle = 90
+            , hjust = ifelse(max(x$propGe) > max(x$propEpitopeSite), 1, 0)
+            , vjust = 1
+            , nudge_x = 0.025
+            , nudge_y = ifelse(max(x$propGe) > max(x$propEpitopeSite), -0.01, 0.01)
+            , color = ifelse(max(x$propGe) > max(x$propEpitopeSite), 'white', 'red')
+        )+
+        scale_fill_manual(
+            values = c('grey','red')
+            , labels = c(
+                'Proportion of variable sites within N sites of known epitopes'
+                ,'Probability of the overlap being >= the observed by coincidence'
+            )
+        )+
+        scale_x_continuous("N"
+            , breaks = 0:10
+        )+
+        ylab("")+
+        theme_classic()+
+        theme(
+            legend.title = element_blank()
+            , legend.position = 'bottom'
+            , legend.direction = 'vertical'
+            # , axis.title.y = element_blank()
+        )
+    return(g)
+}
+
+
+#######
+
+
+
+
+
+plotPropProximal = function(x){
+    g = x %>%
+        select(windowSize, propGe, propEpitopeSite) %>%
+        gather(Type, prop, -windowSize) %>%
+        ggplot(aes(x = windowSize, y = prop, fill = Type))+
+        geom_col(position = 'dodge')+
+        geom_text(data = x %>%
+                mutate(Type = 'propGe')
+            , aes(y = propGe, label = round(propGe,3) %>% sprintf(fmt = '%.3f'))
+            , angle = 90
+            , hjust = ifelse(max(x$propGe) > max(x$propEpitopeSite), 1, 0)
+            , vjust = 1
+            , nudge_x = 0.025
+            , nudge_y = ifelse(max(x$propGe) > max(x$propEpitopeSite), -0.01, 0.01)
+            , color = ifelse(max(x$propGe) > max(x$propEpitopeSite), 'white', 'red')
+        )+
+        scale_fill_manual(
+            values = c('grey','red')
+            , labels = c(
+                'Proportion of variable sites within X angstroms of known epitopes'
+                ,'Probability of the overlap being >= the observed by coincidence'
+            )
+        )+
+        scale_x_continuous("X"
+            , breaks = 0:max(window.vector)
+        )+
+        ylab("")+
+        theme_classic()+
+        theme(
+            legend.title = element_blank()
+            , legend.position = 'bottom'
+            , legend.direction = 'vertical'
+        )
+    return(g)
+}            
+
+ggarrange(
+      plotPropProximal(probGe)
+    , plotPropProximal(probGeHuman)
+    , plotPropProximal(probGeNonhuman)
+    , ncol = 1
+    , nrow = 3
+    , common.legend = T
+    , legend = "bottom"
+    , labels = letters[5:7]
+    , font.label = list(size = 18)
+
+)
+ggsave( filename = file.path(plotdir, "propEpitopeOverlap_angstrom.pdf")
+    , width = 4 * 1.5
+    , height = 6 * 1.5
+)
+
+probGe %>%
+    rename(N = windowSize)
+probGeHuman %>%
+    rename(N = windowSize)
+
+
+
 
 #' Where are the nonzero effect sites that were in the anchor/stem domain?
 tabE %>%
@@ -564,15 +836,20 @@ tabE %>%
 #' ## Estimated effect sizes
 #'
 
-dE %>%
+dE.out = dE %>%
     mutate(
         Position = pos
-        , Substitution = mapply(gsub,'[0-9]+', pos, Feature)
+        , Substitution = mapply(gsub,'[0-9]+', pos, Feature) %>% toupper
         , Effect.median = Median
         , Effect.lower = lower
         , Effect.upper = upper
     ) %>%
     arrange(Position, Effect.median) %>%
     select(Position, Substitution, starts_with('Effect')) %>%
+    mutate_at(vars(matches('^Effect')), round, digits = 3)
+    
+dE.out %>%
     DT::datatable()
     
+dE.out %>%
+    write_csv(file.path(plotdir, 'Subs_nonzero_E.csv'))

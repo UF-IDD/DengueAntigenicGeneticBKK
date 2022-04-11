@@ -345,9 +345,39 @@ done
 
 # Generate report: 62AA
 Rscript -e "rmarkdown::render(
-    'Scripts/plotEffects/plotSignalExcess.R'
+    'Scripts/plotEffects/plotAdjustedEffects.R'
     , output_dir = 'Reports'
     , output_file = 'Reports/NS2A_beyondE.html'
     , knit_root_dir = getwd()
-    , params = list(plotdir = '04-plots/beyondE')
+    , params = list(
+        fitdir = '03-fits/nnls/thai_map/AA_NS2A_beyondE/adj_envelope/aasub'
+        , nulldir = '03-fits/nnls/thai_map/AA_polyNonE_62/adj_envelope/aasub'
+        , aadir = '02-processedData/AA_NS2A_beyondE/'
+        , lengthAdj = 495
+    )
 )"
+
+# Generate report: Excess signal evaluations
+Rscript -e "rmarkdown::render(
+    'Scripts/plotEffects/plotSignalExcess.R'
+    , output_dir = 'Reports'
+    , output_file = 'Reports/SignalExcessFromE.html'
+    , knit_root_dir = getwd()
+    , params = list(plotdir = '04-plots/beyondE')
+)" 
+
+
+
+
+        #   E-NS2A coevolution
+        #   ..................
+        
+sh Scripts/coevolution/coevolution.sh
+
+
+
+        #   Observable effects of point substitutions
+        #   ..................
+        
+Rscript --vanilla Scripts/validation/effects.R
+

@@ -1,0 +1,14 @@
+"anchored capsid protein C" 114
+"capsid protein C" 100
+"envelope protein E" 495
+"membrane glycoprotein M" 75
+"membrane glycoprotein precursor M" 166
+"nonstructural protein NS1" 352
+"nonstructural protein NS2A" 219
+"nonstructural protein NS2B" 130
+"nonstructural protein NS3" 619
+"nonstructural protein NS4A" 127
+"nonstructural protein NS4B" 249
+"protein 2K" 23
+"protein pr" 91
+"RNA-dependent RNA polymerase NS5" 901

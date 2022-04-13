@@ -1,0 +1,29 @@
+featureType,protein_name,dataset,lower,Median,upper
+aasub,anchored capsid protein C,test_rmse,0.794665,0.8059000000000001,0.8195100000000001
+aasub,anchored capsid protein C,train_rmse,0.7992999999999999,0.8008000000000001,0.8020525000000001
+aasub,capsid protein C,test_rmse,0.815095,0.8258500000000001,0.8378675
+aasub,capsid protein C,train_rmse,0.8191,0.8205,0.8217000000000001
+aasub,envelope protein E,test_rmse,0.7227325,0.7315499999999999,0.7423
+aasub,envelope protein E,train_rmse,0.7238475,0.725,0.7260525
+aasub,membrane glycoprotein M,test_rmse,0.8157425,0.8288500000000001,0.8404450000000001
+aasub,membrane glycoprotein M,train_rmse,0.8213950000000001,0.8227000000000001,0.8242
+aasub,membrane glycoprotein precursor M,test_rmse,0.7810899999999998,0.7920999999999999,0.8030625
+aasub,membrane glycoprotein precursor M,train_rmse,0.7848474999999999,0.7859999999999999,0.7873524999999999
+aasub,nonstructural protein NS1,test_rmse,0.7346649999999999,0.74575,0.756035
+aasub,nonstructural protein NS1,train_rmse,0.7386950000000001,0.73985,0.7411049999999999
+aasub,nonstructural protein NS2A,test_rmse,0.7294175,0.741,0.749935
+aasub,nonstructural protein NS2A,train_rmse,0.7325475,0.7334999999999999,0.7348525
+aasub,nonstructural protein NS2B,test_rmse,0.8166325000000001,0.82815,0.8399350000000001
+aasub,nonstructural protein NS2B,train_rmse,0.8206950000000002,0.8220000000000001,0.8233525
+aasub,nonstructural protein NS3,test_rmse,0.747355,0.7585500000000001,0.76831
+aasub,nonstructural protein NS3,train_rmse,0.7511,0.7523,0.7535050000000001
+aasub,nonstructural protein NS4A,test_rmse,0.7942425,0.8062,0.8179100000000001
+aasub,nonstructural protein NS4A,train_rmse,0.7989999999999999,0.8003,0.8016000000000001
+aasub,nonstructural protein NS4B,test_rmse,0.77979,0.7901499999999999,0.801425
+aasub,nonstructural protein NS4B,train_rmse,0.7838999999999999,0.7850999999999999,0.7861999999999999
+aasub,protein 2K,test_rmse,0.816195,0.8287000000000001,0.8405250000000001
+aasub,protein 2K,train_rmse,0.8220000000000001,0.8233,0.8247000000000001
+aasub,protein pr,test_rmse,0.7921425,0.80315,0.8133625000000001
+aasub,protein pr,train_rmse,0.7957,0.7968,0.7980999999999999
+aasub,RNA-dependent RNA polymerase NS5,test_rmse,0.6730324999999999,0.6838,0.6936724999999999
+aasub,RNA-dependent RNA polymerase NS5,train_rmse,0.6737474999999999,0.67490000000000006,0.676105

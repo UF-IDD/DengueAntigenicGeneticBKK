@@ -1,0 +1,3 @@
+featureType,protein_name,dataset,lower,Median,upper
+aasub,envelope protein E,test_rmse,0.814235,0.8248000000000001,0.8362925000000001
+aasub,envelope protein E,train_rmse,0.8180475,0.8193,0.8204575000000001
